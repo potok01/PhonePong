@@ -20,9 +20,9 @@ public class SensorServer : MonoBehaviour
     public Button startButton;
     public Button stopButton;
 
-    public TextMeshProUGUI X;
-    public TextMeshProUGUI Y;
-    public TextMeshProUGUI Z;
+    public TextMeshProUGUI linearAccelX;
+    public TextMeshProUGUI linearAccelY;
+    public TextMeshProUGUI linearAccelZ;
 
     public Vector3 linearAccelData;
     public Vector3 previousLinearAccelData;
@@ -112,9 +112,9 @@ public class SensorServer : MonoBehaviour
                     string[] parts = data.Split(',');
 
                     // Update the TextMeshPro objects with the received data
-                    X.text = string.Format("{0:F2}", float.Parse(parts[0]));
-                    Y.text = string.Format("{0:F2}", float.Parse(parts[1]));
-                    Z.text = string.Format("{0:F2}", float.Parse(parts[2]));
+                    linearAccelX.text = string.Format("{0:F2}", float.Parse(parts[0]));
+                    linearAccelY.text = string.Format("{0:F2}", float.Parse(parts[1]));
+                    linearAccelZ.text = string.Format("{0:F2}", float.Parse(parts[2]));
 
                     linearAccelData = new Vector3(float.Parse(parts[0]), float.Parse(parts[1]), float.Parse(parts[2]));
                 }
