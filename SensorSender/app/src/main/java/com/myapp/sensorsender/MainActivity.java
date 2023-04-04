@@ -28,6 +28,7 @@ public class MainActivity extends AppCompatActivity {
         byte[] accelDataBytes = new byte[3 * 4];
         ByteBuffer accelBuffer = ByteBuffer.wrap(accelDataBytes).order(ByteOrder.LITTLE_ENDIAN);
         byte[] gyroDataBytes = new byte[3 * 4];
+        byte[] allDataBytes = new byte[accelDataBytes.length + gyroDataBytes.length];
         ByteBuffer gyroBuffer = ByteBuffer.wrap(gyroDataBytes).order(ByteOrder.LITTLE_ENDIAN);
         @Override
         public void onSensorChanged(SensorEvent event) {
@@ -49,7 +50,6 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (isAccelerometerDataAvailable && isGyroscopeDataAvailable) {
                     // Combine the byte arrays for accelerometer and gyroscope data
-                    byte[] allDataBytes = new byte[accelDataBytes.length + gyroDataBytes.length];
                     System.arraycopy(accelDataBytes, 0, allDataBytes, 0, accelDataBytes.length);
                     System.arraycopy(gyroDataBytes, 0, allDataBytes, accelDataBytes.length, gyroDataBytes.length);
 
@@ -89,13 +89,20 @@ public class MainActivity extends AppCompatActivity {
             // Do nothing
         }
     }
-
     private Socket socket;
     private OutputStream outputStream;
     private Button connectButton;
     private Button disconnectButton;
     private Button startSendingButton;
     private Button stopSendingButton;
+    private boolean isSendingData = false;
+    private SensorManager sensorManager;
+    private SensorEventListener sensorListener;
+    private boolean isAccelerometerDataAvailable = false;
+    private boolean isGyroscopeDataAvailable = false;
+    private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_GAME;
+    private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
+    private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -134,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
     private void connectToServer() {
         new Thread(new Runnable() {
             @Override
@@ -168,7 +174,6 @@ public class MainActivity extends AppCompatActivity {
         }).start();
 
     }
-
     private void disconnectFromServer() {
         new Thread(new Runnable() {
             @Override
@@ -193,22 +198,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
-
-    private boolean isSendingData = false;
-    private SensorManager sensorManager;
-    private SensorEventListener sensorListener;
-
-    private boolean isAccelerometerDataAvailable = false;
-    private boolean isGyroscopeDataAvailable = false;
-
-    private StringBuilder allData = new StringBuilder();
-    private StringBuilder accelData = new StringBuilder();
-    private StringBuilder gyroData = new StringBuilder();
-
-    private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_GAME;
-    private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
-    private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
-
     private void startSendingSensorData() {
         // Check if we're already sending data
         if (isSendingData) {
@@ -238,10 +227,6 @@ public class MainActivity extends AppCompatActivity {
         // Start the thread
         sensorThread.start();
     }
-
-
-
-
     private void stopSendingSensorData() {
         // Check if we're currently sending data
         if (!isSendingData) {
