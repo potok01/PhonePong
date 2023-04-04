@@ -1237,9 +1237,9 @@ MonoBehaviour:
   port: 1234
   startButton: {fileID: 109326835}
   stopButton: {fileID: 989557751}
-  linearAccelX: {fileID: 0}
-  linearAccelY: {fileID: 0}
-  linearAccelZ: {fileID: 0}
+  linearAccelX: {fileID: 1146528609}
+  linearAccelY: {fileID: 1230015485}
+  linearAccelZ: {fileID: 1085183435}
   linearAccelData: {x: 0, y: 0, z: 0}
   previousLinearAccelData: {x: 0, y: 0, z: 0}
   _cube: {fileID: 0}

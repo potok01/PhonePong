@@ -128,10 +128,18 @@ public class SensorServer : MonoBehaviour
             yield return new WaitForSeconds(0.01f);
         }
 
-        stream.Close();
-        client.Close();
+        if (stream != null)
+        {
+            stream.Close();
+        }
+        if (client != null)
+        {
+            client.Close();
+        }
+
         Debug.Log("Client disconnected");
     }
+
 
     private bool IsValidData(string data)
     {
