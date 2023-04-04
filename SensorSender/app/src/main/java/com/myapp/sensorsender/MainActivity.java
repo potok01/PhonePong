@@ -6,6 +6,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
@@ -17,6 +18,63 @@ import java.net.Socket;
 
 
 public class MainActivity extends AppCompatActivity {
+    private class MySensorEventListener implements SensorEventListener {
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            // Send the sensor data as a string to the server
+            try {
+                // Convert the sensor data to a string
+                for (int i = 0; i < event.values.length; i++) {
+                    if (!isAccelerometerDataAvailable && event.sensor.getType() == SENSOR_TYPE_ACCELEROMETER) {
+                        accelData.append(event.values[i]);
+                        accelData.append(",");
+                        if(i == event.values.length - 1){
+                            isAccelerometerDataAvailable = true;
+                        }
+                    } else if (!isGyroscopeDataAvailable && event.sensor.getType() == SENSOR_TYPE_GYROSCOPE) {
+                        gyroData.append(event.values[i]);
+                        if (i != event.values.length - 1) {
+                            gyroData.append(",");
+                        }
+                        if(i == event.values.length - 1){
+                            isGyroscopeDataAvailable = true;
+                        }
+                    }
+                }
+                if (isAccelerometerDataAvailable && isGyroscopeDataAvailable) {
+                    allData.append(accelData);
+                    allData.append(gyroData);
+                    String data = allData.toString();
+                    Log.d("acceldata", accelData.toString());
+                    Log.d("gyrodata", gyroData.toString());
+                    Log.d("alldata", allData.toString());
+
+                    isAccelerometerDataAvailable = false;
+                    isGyroscopeDataAvailable = false;
+
+                    accelData.setLength(0);
+                    gyroData.setLength(0);
+                    allData.setLength(0);
+                    // Send the data to the server on a separate thread
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            PrintWriter printWriter = new PrintWriter(outputStream, true);
+                            printWriter.println(data);
+                        }
+                    }).start();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            // Do nothing
+        }
+    }
+
 
     private Socket socket;
     private OutputStream outputStream;
@@ -24,8 +82,6 @@ public class MainActivity extends AppCompatActivity {
     private Button disconnectButton;
     private Button startSendingButton;
     private Button stopSendingButton;
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -128,6 +184,17 @@ public class MainActivity extends AppCompatActivity {
     private SensorManager sensorManager;
     private SensorEventListener sensorListener;
 
+    private boolean isAccelerometerDataAvailable = false;
+    private boolean isGyroscopeDataAvailable = false;
+
+    private StringBuilder allData = new StringBuilder();
+    private StringBuilder accelData = new StringBuilder();
+    private StringBuilder gyroData = new StringBuilder();
+
+    private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_NORMAL;
+    private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
+    private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
+
     private void startSendingSensorData() {
         // Check if we're already sending data
         if (isSendingData) {
@@ -140,42 +207,14 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 // Create the sensor manager and sensor listener
                 sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-                sensorListener = new SensorEventListener() {
-                    @Override
-                    public void onSensorChanged(SensorEvent event) {
-                        // Send the sensor data as a string to the server
-                        try {
-                            // Convert the sensor data to a string
-                            StringBuilder stringBuilder = new StringBuilder();
-                            for (int i = 0; i < event.values.length; i++) {
-                                stringBuilder.append(event.values[i]);
-                                if (i != event.values.length - 1) {
-                                    stringBuilder.append(",");
-                                }
-                            }
-                            String data = stringBuilder.toString();
+                sensorListener = new MySensorEventListener();
 
-                            // Send the data to the server on a separate thread
-                            new Thread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    PrintWriter printWriter = new PrintWriter(outputStream, true);
-                                    printWriter.println(data);
-                                }
-                            }).start();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
+                // Register the sensor listener for accelerometer and gyroscope sensors
+                Sensor accelerometerSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_ACCELEROMETER);
+                sensorManager.registerListener(sensorListener, accelerometerSensor, SENSOR_DELAY);
 
-                    @Override
-                    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                        // Do nothing
-                    }
-                };
-
-                // Register the sensor listener
-                sensorManager.registerListener(sensorListener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
+                Sensor gyroscopeSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_GYROSCOPE);
+                sensorManager.registerListener(sensorListener, gyroscopeSensor, SENSOR_DELAY);
 
                 // Set the isSendingData flag to true
                 isSendingData = true;
@@ -185,6 +224,7 @@ public class MainActivity extends AppCompatActivity {
         // Start the thread
         sensorThread.start();
     }
+
 
 
 

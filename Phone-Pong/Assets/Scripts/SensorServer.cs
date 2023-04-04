@@ -24,8 +24,12 @@ public class SensorServer : MonoBehaviour
     public TextMeshProUGUI linearAccelY;
     public TextMeshProUGUI linearAccelZ;
 
+    public TextMeshProUGUI gyroX;
+    public TextMeshProUGUI gyroY;
+    public TextMeshProUGUI gyroZ;
+
     public Vector3 linearAccelData;
-    public Vector3 previousLinearAccelData;
+    public Vector3 gyroData;
 
     public GameObject _cube;
 
@@ -86,6 +90,7 @@ public class SensorServer : MonoBehaviour
 
     private IEnumerator HandleClientCoroutine(TcpClient client)
     {
+        Debug.Log("This has been started");
         NetworkStream stream = client.GetStream();
         byte[] buffer = new byte[1024];
         int bytesRead = 0;
@@ -94,12 +99,14 @@ public class SensorServer : MonoBehaviour
         {
             try
             {
-                bytesRead = stream.Read(buffer, 0, buffer.Length);
-
-                if (bytesRead > 0)
+                if (stream.DataAvailable)
                 {
+                    bytesRead = stream.Read(buffer, 0, buffer.Length);
+
                     // Convert the byte array to a string using ASCII encoding
                     string data = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+
+                    Debug.Log(data);
 
                     // Check if the received data is valid
                     if (!IsValidData(data))
@@ -108,7 +115,7 @@ public class SensorServer : MonoBehaviour
                         continue;
                     }
 
-                    // Split the string into 3 parts using a separator (e.g. ",")
+                    // Split the string into 6 parts using a separator (e.g. ",")
                     string[] parts = data.Split(',');
 
                     // Update the TextMeshPro objects with the received data
@@ -117,6 +124,16 @@ public class SensorServer : MonoBehaviour
                     linearAccelZ.text = string.Format("{0:F2}", float.Parse(parts[2]));
 
                     linearAccelData = new Vector3(float.Parse(parts[0]), float.Parse(parts[1]), float.Parse(parts[2]));
+
+                    gyroX.text = string.Format("{0:F2}", float.Parse(parts[3]));
+                    gyroY.text = string.Format("{0:F2}", float.Parse(parts[4]));
+                    gyroZ.text = string.Format("{0:F2}", float.Parse(parts[5]));
+
+                    gyroData = new Vector3(float.Parse(parts[3]), float.Parse(parts[4]), float.Parse(parts[5])); 
+                }
+                else
+                {
+                    Debug.Log("No data available");
                 }
             }
             catch (Exception e)
@@ -143,9 +160,9 @@ public class SensorServer : MonoBehaviour
 
     private bool IsValidData(string data)
     {
-        // Check if the data contains 3 parts separated by commas
+        // Check if the data contains 6 parts separated by commas
         string[] parts = data.Split(',');
-        if (parts.Length != 3)
+        if (parts.Length != 6)
         {
             return false;
         }
@@ -164,13 +181,21 @@ public class SensorServer : MonoBehaviour
         {
             return false;
         }
+        if (!float.TryParse(parts[3], out value))
+        {
+            return false;
+        }
+        if (!float.TryParse(parts[4], out value))
+        {
+            return false;
+        }
+        if (!float.TryParse(parts[5], out value))
+        {
+            return false;
+        }
 
         // Data is valid
         return true;
     }
 
-    private void Update()
-    {
-
-    }
 }
