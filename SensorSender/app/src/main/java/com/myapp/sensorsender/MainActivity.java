@@ -10,57 +10,71 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
+
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
 
 
 public class MainActivity extends AppCompatActivity {
+
     private class MySensorEventListener implements SensorEventListener {
+        byte[] accelDataBytes = new byte[3 * 4];
+        ByteBuffer accelBuffer = ByteBuffer.wrap(accelDataBytes).order(ByteOrder.LITTLE_ENDIAN);
+        byte[] gyroDataBytes = new byte[3 * 4];
+        ByteBuffer gyroBuffer = ByteBuffer.wrap(gyroDataBytes).order(ByteOrder.LITTLE_ENDIAN);
         @Override
         public void onSensorChanged(SensorEvent event) {
-            // Send the sensor data as a string to the server
+            // Send the sensor data to the server
             try {
-                // Convert the sensor data to a string
+                // Convert the sensor data to byte arrays
                 for (int i = 0; i < event.values.length; i++) {
-                    if (!isAccelerometerDataAvailable && event.sensor.getType() == SENSOR_TYPE_ACCELEROMETER) {
-                        accelData.append(event.values[i]);
-                        accelData.append(",");
-                        if(i == event.values.length - 1){
+                    if (!isAccelerometerDataAvailable && event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                        accelBuffer.putFloat(i * 4, event.values[i]);
+                        if (i == event.values.length - 1) {
                             isAccelerometerDataAvailable = true;
                         }
-                    } else if (!isGyroscopeDataAvailable && event.sensor.getType() == SENSOR_TYPE_GYROSCOPE) {
-                        gyroData.append(event.values[i]);
-                        if (i != event.values.length - 1) {
-                            gyroData.append(",");
-                        }
-                        if(i == event.values.length - 1){
+                    } else if (!isGyroscopeDataAvailable && event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+                        gyroBuffer.putFloat(i * 4, event.values[i]);
+                        if (i == event.values.length - 1) {
                             isGyroscopeDataAvailable = true;
                         }
                     }
                 }
                 if (isAccelerometerDataAvailable && isGyroscopeDataAvailable) {
-                    allData.append(accelData);
-                    allData.append(gyroData);
-                    String data = allData.toString();
-                    Log.d("acceldata", accelData.toString());
-                    Log.d("gyrodata", gyroData.toString());
-                    Log.d("alldata", allData.toString());
+                    // Combine the byte arrays for accelerometer and gyroscope data
+                    byte[] allDataBytes = new byte[accelDataBytes.length + gyroDataBytes.length];
+                    System.arraycopy(accelDataBytes, 0, allDataBytes, 0, accelDataBytes.length);
+                    System.arraycopy(gyroDataBytes, 0, allDataBytes, accelDataBytes.length, gyroDataBytes.length);
 
                     isAccelerometerDataAvailable = false;
                     isGyroscopeDataAvailable = false;
 
-                    accelData.setLength(0);
-                    gyroData.setLength(0);
-                    allData.setLength(0);
+                    // Use the same ByteBuffer objects to read the float values
+                    ByteBuffer buffer = ByteBuffer.wrap(allDataBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+                    for (int i = 0; i < 6; i++) {
+                        Log.d("Float", String.valueOf(buffer.getFloat()));
+                    }
+
                     // Send the data to the server on a separate thread
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            PrintWriter printWriter = new PrintWriter(outputStream, true);
-                            printWriter.println(data);
+                            try {
+                                // Write the data to the output stream
+                                DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+                                dataOutputStream.write(allDataBytes);
+                                dataOutputStream.flush();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }).start();
                 }
@@ -69,12 +83,12 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
             // Do nothing
         }
     }
-
 
     private Socket socket;
     private OutputStream outputStream;
@@ -191,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
     private StringBuilder accelData = new StringBuilder();
     private StringBuilder gyroData = new StringBuilder();
 
-    private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_NORMAL;
+    private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_GAME;
     private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
     private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
 

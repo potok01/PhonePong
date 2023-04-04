@@ -1,13 +1,13 @@
 using System;
 using System.Collections;
-using System.IO;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
+using Debug = UnityEngine.Debug;
 
 public class SensorServer : MonoBehaviour
 {
@@ -32,6 +32,12 @@ public class SensorServer : MonoBehaviour
     public Vector3 gyroData;
 
     public GameObject _cube;
+
+    //Benchmark variables
+    public TextMeshProUGUI frequencyText;
+    bool isFirstDataReceived = false;
+    Stopwatch stopwatch = new Stopwatch();
+    int dataCount = 0;
 
     private void Start()
     {
@@ -87,12 +93,11 @@ public class SensorServer : MonoBehaviour
         isListening = false;
     }
 
-
     private IEnumerator HandleClientCoroutine(TcpClient client)
     {
         Debug.Log("This has been started");
         NetworkStream stream = client.GetStream();
-        byte[] buffer = new byte[1024];
+        byte[] buffer = new byte[24];
         int bytesRead = 0;
 
         while (isRunning && client.Connected)
@@ -101,39 +106,56 @@ public class SensorServer : MonoBehaviour
             {
                 if (stream.DataAvailable)
                 {
-                    bytesRead = stream.Read(buffer, 0, buffer.Length);
-
-                    // Convert the byte array to a string using ASCII encoding
-                    string data = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-
-                    Debug.Log(data);
-
-                    // Check if the received data is valid
-                    if (!IsValidData(data))
+                    // If this is the first data received, set the flag and start the timer
+                    if (!isFirstDataReceived)
                     {
-                        Debug.LogWarning("Received data is invalid");
-                        continue;
+                        isFirstDataReceived = true;
+                        stopwatch.Start();
                     }
 
-                    // Split the string into 6 parts using a separator (e.g. ",")
-                    string[] parts = data.Split(',');
+                    bytesRead = stream.Read(buffer, 0, buffer.Length);
 
+                    // Convert the byte array to float values
+                    float[] sensorData = new float[6];
+                    for (int i = 0; i < sensorData.Length; i++)
+                    {
+                        sensorData[i] = BitConverter.ToSingle(buffer, i * sizeof(float));
+                    }
+
+                    
                     // Update the TextMeshPro objects with the received data
-                    linearAccelX.text = string.Format("{0:F2}", float.Parse(parts[0]));
-                    linearAccelY.text = string.Format("{0:F2}", float.Parse(parts[1]));
-                    linearAccelZ.text = string.Format("{0:F2}", float.Parse(parts[2]));
+                    linearAccelX.text = string.Format("{0:F2}", sensorData[0]);
+                    linearAccelY.text = string.Format("{0:F2}", sensorData[1]);
+                    linearAccelZ.text = string.Format("{0:F2}", sensorData[2]);
 
-                    linearAccelData = new Vector3(float.Parse(parts[0]), float.Parse(parts[1]), float.Parse(parts[2]));
+                    linearAccelData = new Vector3(sensorData[0], sensorData[1], sensorData[2]);
 
-                    gyroX.text = string.Format("{0:F2}", float.Parse(parts[3]));
-                    gyroY.text = string.Format("{0:F2}", float.Parse(parts[4]));
-                    gyroZ.text = string.Format("{0:F2}", float.Parse(parts[5]));
+                    gyroX.text = string.Format("{0:F2}", sensorData[3]);
+                    gyroY.text = string.Format("{0:F2}", sensorData[4]);
+                    gyroZ.text = string.Format("{0:F2}", sensorData[5]);
 
-                    gyroData = new Vector3(float.Parse(parts[3]), float.Parse(parts[4]), float.Parse(parts[5])); 
+                    gyroData = new Vector3(sensorData[3], sensorData[4], sensorData[5]);
+
+                    // If you want to measure the frequency of data received, you can update a counter
+                    // and calculate the frequency at regular intervals (e.g. every 1 second)
+                    dataCount++;
+
+                    // If 1 second has elapsed, calculate the frequency and reset the counter and timer
+                    if (stopwatch.ElapsedMilliseconds >= 1000)
+                    {
+                        float frequency = dataCount / ((float)stopwatch.ElapsedMilliseconds / 1000);
+
+                        frequencyText.text = frequency.ToString();
+                        Debug.Log("Data frequency: " + frequency + " Hz");
+
+                        dataCount = 0;
+                        stopwatch.Reset();
+                        stopwatch.Start();
+                    }
                 }
                 else
                 {
-                    Debug.Log("No data available");
+                    //Debug.Log("No data available");
                 }
             }
             catch (Exception e)
@@ -155,47 +177,6 @@ public class SensorServer : MonoBehaviour
         }
 
         Debug.Log("Client disconnected");
-    }
-
-
-    private bool IsValidData(string data)
-    {
-        // Check if the data contains 6 parts separated by commas
-        string[] parts = data.Split(',');
-        if (parts.Length != 6)
-        {
-            return false;
-        }
-
-        // Check if each part can be parsed to a float
-        float value;
-        if (!float.TryParse(parts[0], out value))
-        {
-            return false;
-        }
-        if (!float.TryParse(parts[1], out value))
-        {
-            return false;
-        }
-        if (!float.TryParse(parts[2], out value))
-        {
-            return false;
-        }
-        if (!float.TryParse(parts[3], out value))
-        {
-            return false;
-        }
-        if (!float.TryParse(parts[4], out value))
-        {
-            return false;
-        }
-        if (!float.TryParse(parts[5], out value))
-        {
-            return false;
-        }
-
-        // Data is valid
-        return true;
     }
 
 }
