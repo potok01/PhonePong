@@ -3,10 +3,11 @@ using System.Collections;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
+using Button = UnityEngine.UI.Button;
 using Debug = UnityEngine.Debug;
 
 public class SensorServer : MonoBehaviour
@@ -19,6 +20,9 @@ public class SensorServer : MonoBehaviour
 
     public Button startButton;
     public Button stopButton;
+    public Button startCalibrationButton;
+    public Button stopCalibrationButton;
+    public Button calibrateButton;
 
     public TextMeshProUGUI linearAccelX;
     public TextMeshProUGUI linearAccelY;
@@ -39,10 +43,30 @@ public class SensorServer : MonoBehaviour
     Stopwatch stopwatch = new Stopwatch();
     int dataCount = 0;
 
+    //Calibration variables
+    public TextMeshProUGUI calibrationText;
+
+    private bool isCalibrating = false;
+    private int currentAxis = 0;
+    private float currentOffset = 0f;
+
+    private const int numCalibrationSteps = 3;
+    private const float rotationAmount = 180f;
+
+
+    private bool startCalibrationButtonClicked = false;
+    private bool stopCalibrationButtonClicked = false;
+
     private void Start()
     {
         startButton.onClick.AddListener(StartServer);
         stopButton.onClick.AddListener(StopServer);
+        calibrateButton.onClick.AddListener(Calibrate);
+
+        startCalibrationButton.interactable = false;
+        stopCalibrationButton.interactable = false;
+        startCalibrationButton.onClick.AddListener(() => startCalibrationButtonClicked = true);
+        stopCalibrationButton.onClick.AddListener(() => stopCalibrationButtonClicked = true);
     }
 
     private void OnDestroy()
@@ -177,6 +201,62 @@ public class SensorServer : MonoBehaviour
         }
 
         Debug.Log("Client disconnected");
+    }
+
+    private void Update()
+    {
+        Quaternion gyroRotation = Quaternion.Euler(gyroData.y, -gyroData.x, gyroData.z);
+        _cube.transform.rotation *= gyroRotation;
+    }
+
+    private IEnumerator CalibrateCoroutine()
+    {
+        isCalibrating = true;
+
+
+
+        for (int i = 0; i < numCalibrationSteps; i++)
+        {
+            // Display current axis to user
+            currentAxis = i;
+            calibrationText.text = $"Calibrate axis {currentAxis + 1}";
+
+            startCalibrationButton.interactable = true;
+
+            // Wait for user to click Start Calibration button
+            yield return new WaitUntil(() => startCalibrationButtonClicked);
+
+            startCalibrationButtonClicked = false;
+            startCalibrationButton.interactable = false;
+
+            // 
+            Debug.Log("Starting calibration for axis " + currentAxis.ToString());
+
+            stopCalibrationButton.interactable = true;
+
+            // Wait for user to click Stop Calibration button
+            yield return new WaitUntil(() => stopCalibrationButtonClicked);
+
+            stopCalibrationButtonClicked = false;
+            stopCalibrationButton.interactable = false;
+
+            // 
+            Debug.Log("Stopping calibration for axis " + currentAxis.ToString());
+        }
+
+        // Calibration complete
+        currentAxis = -1;
+        currentOffset = 0f;
+        calibrationText.text = "Calibration complete";
+        isCalibrating = false;
+    }
+
+    private void Calibrate()
+    {
+        if (!isCalibrating)
+        {
+            StartCoroutine(CalibrateCoroutine());
+        }
     }
 
 }
