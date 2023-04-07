@@ -20,9 +20,11 @@ public class SensorServer : MonoBehaviour
 
     public Button startButton;
     public Button stopButton;
-    public Button startCalibrationButton;
-    public Button stopCalibrationButton;
+    public Button startGyroCalibrationButton;
+    public Button stopGyroCalibrationButton;
     public Button calibrateButton;
+    public Button resetRotationButton;
+    public Button lockToPhoneButton;
 
     public TextMeshProUGUI linearAccelX;
     public TextMeshProUGUI linearAccelY;
@@ -43,30 +45,38 @@ public class SensorServer : MonoBehaviour
     Stopwatch stopwatch = new Stopwatch();
     int dataCount = 0;
 
-    //Calibration variables
-    public TextMeshProUGUI calibrationText;
-
-    private bool isCalibrating = false;
-    private int currentAxis = 0;
-    private float currentOffset = 0f;
-
-    private const int numCalibrationSteps = 3;
+    //Gyro calibration variables
+    private const int numGyroCalibrationSteps = 3;
     private const float rotationAmount = 180f;
+    public TextMeshProUGUI gyroCalibrationText;
+    private bool startGyroCalibrationButtonClicked = false;
+    private bool stopGyroCalibrationButtonClicked = false;
+    private bool isCalibratingGyro = false;
+    private int currentGyroAxis = 0;
+    public float[] calibratedGyroScaleFactors = { 0.1f, 0.1f, 0.1f };
 
+    //Accelerometer calibration variables
+    private const int numAccelCalibrationSteps = 3;
+    public TextMeshProUGUI accelCalibrationText;
+    private bool startAccelCalibrationButtonClicked = false;
+    private bool stopAccelCalibrationButtonClicked = false;
+    private bool isCalibratingAccel = false;
+    private int currentAccelAxis = 0;
+    public float[] calibratedAccelScaleFactors = { 0.1f, 0.1f, 0.1f };
 
-    private bool startCalibrationButtonClicked = false;
-    private bool stopCalibrationButtonClicked = false;
 
     private void Start()
     {
         startButton.onClick.AddListener(StartServer);
         stopButton.onClick.AddListener(StopServer);
-        calibrateButton.onClick.AddListener(Calibrate);
+        calibrateButton.onClick.AddListener(CalibrateGyro);
+        resetRotationButton.onClick.AddListener(ResetRotation);
+        lockToPhoneButton.onClick.AddListener(LockToPhone);
 
-        startCalibrationButton.interactable = false;
-        stopCalibrationButton.interactable = false;
-        startCalibrationButton.onClick.AddListener(() => startCalibrationButtonClicked = true);
-        stopCalibrationButton.onClick.AddListener(() => stopCalibrationButtonClicked = true);
+        startGyroCalibrationButton.interactable = false;
+        stopGyroCalibrationButton.interactable = false;
+        startGyroCalibrationButton.onClick.AddListener(() => startGyroCalibrationButtonClicked = true);
+        stopGyroCalibrationButton.onClick.AddListener(() => stopGyroCalibrationButtonClicked = true);
     }
 
     private void OnDestroy()
@@ -146,6 +156,7 @@ public class SensorServer : MonoBehaviour
                         sensorData[i] = BitConverter.ToSingle(buffer, i * sizeof(float));
                     }
 
+                    HandleSensorData(sensorData);
                     
                     // Update the TextMeshPro objects with the received data
                     linearAccelX.text = string.Format("{0:F2}", sensorData[0]);
@@ -170,7 +181,7 @@ public class SensorServer : MonoBehaviour
                         float frequency = dataCount / ((float)stopwatch.ElapsedMilliseconds / 1000);
 
                         frequencyText.text = frequency.ToString();
-                        Debug.Log("Data frequency: " + frequency + " Hz");
+                        // Debug.Log("Data frequency: " + frequency + " Hz");
 
                         dataCount = 0;
                         stopwatch.Reset();
@@ -203,60 +214,110 @@ public class SensorServer : MonoBehaviour
         Debug.Log("Client disconnected");
     }
 
-    private void Update()
+
+
+        private void Update()
     {
-        Quaternion gyroRotation = Quaternion.Euler(gyroData.y, -gyroData.x, gyroData.z);
+        Quaternion gyroRotation = Quaternion.Euler(gyroData.x * calibratedGyroScaleFactors[0], gyroData.y * calibratedGyroScaleFactors[1], gyroData.z * calibratedGyroScaleFactors[2]);
         _cube.transform.rotation *= gyroRotation;
     }
 
-    private IEnumerator CalibrateCoroutine()
+    // Define filter variables
+    float linearAccelAlpha = 0.5f; // filter coefficient
+    Vector3 prevLinearAccelData = Vector3.zero; // previous filtered output
+    Vector3 filteredLinearAccelData = Vector3.zero; // current filtered output
+
+    float gyroAlpha = 0.5f; // filter coefficient
+    Vector3 prevGyroData = Vector3.zero; // previous filtered output
+    Vector3 filteredGyroData = Vector3.zero; // current filtered output
+
+    private void HandleSensorData(float[] sensorData)
     {
-        isCalibrating = true;
+        /*
+        // Apply the filter to the linear acceleration data
+        Vector3 linearAccelInput = new Vector3(sensorData[0], sensorData[1], sensorData[2]);
+        filteredLinearAccelData = Vector3.Lerp(prevLinearAccelData, linearAccelInput, linearAccelAlpha);
+        prevLinearAccelData = filteredLinearAccelData;
 
+        // Update the TextMeshPro objects with the filtered linear acceleration data
+        linearAccelX.text = string.Format("{0:F2}", filteredLinearAccelData.x);
+        linearAccelY.text = string.Format("{0:F2}", filteredLinearAccelData.y);
+        linearAccelZ.text = string.Format("{0:F2}", filteredLinearAccelData.z);
 
+        // Apply the filter to the gyroscope data
+        Vector3 gyroInput = new Vector3(sensorData[3], sensorData[4], sensorData[5]);
+        filteredGyroData = Vector3.Lerp(prevGyroData, gyroInput, gyroAlpha);
+        prevGyroData = filteredGyroData;
 
-        for (int i = 0; i < numCalibrationSteps; i++)
+        // Update the TextMeshPro objects with the filtered gyroscope data
+        gyroX.text = string.Format("{0:F2}", filteredGyroData.x);
+        gyroY.text = string.Format("{0:F2}", filteredGyroData.y);
+        gyroZ.text = string.Format("{0:F2}", filteredGyroData.z);
+
+        */
+    }
+    private IEnumerator CalibrateGyroCoroutine()
+    {
+        isCalibratingGyro = true;
+
+        for (int axis = 0; axis < numGyroCalibrationSteps; axis++)
         {
-            // Display current axis to user
-            currentAxis = i;
-            calibrationText.text = $"Calibrate axis {currentAxis + 1}";
 
-            startCalibrationButton.interactable = true;
+            // Display current axis to user
+            currentGyroAxis = axis;
+            gyroCalibrationText.text = $"Calibrate axis {currentGyroAxis + 1}";
+
+            startGyroCalibrationButton.interactable = true;
 
             // Wait for user to click Start Calibration button
-            yield return new WaitUntil(() => startCalibrationButtonClicked);
+            yield return new WaitUntil(() => startGyroCalibrationButtonClicked);
+            ResetRotation();
 
-            startCalibrationButtonClicked = false;
-            startCalibrationButton.interactable = false;
+            // Disable start
+            startGyroCalibrationButtonClicked = false;
+            startGyroCalibrationButton.interactable = false;
 
-            // 
-            Debug.Log("Starting calibration for axis " + currentAxis.ToString());
-
-            stopCalibrationButton.interactable = true;
+            // Enable stop
+            stopGyroCalibrationButton.interactable = true;
 
             // Wait for user to click Stop Calibration button
-            yield return new WaitUntil(() => stopCalibrationButtonClicked);
+            yield return new WaitUntil(() => stopGyroCalibrationButtonClicked);
 
-            stopCalibrationButtonClicked = false;
-            stopCalibrationButton.interactable = false;
+            // Record cube final rotation
+            Quaternion finalCubeRotation = _cube.transform.rotation;
+            float finalAlongOneAxis = finalCubeRotation.eulerAngles[axis];
+            Debug.Log(finalAlongOneAxis);
 
-            // 
-            Debug.Log("Stopping calibration for axis " + currentAxis.ToString());
+            //Disable Stop
+            stopGyroCalibrationButtonClicked = false;
+            stopGyroCalibrationButton.interactable = false;
+
+            // Calculate difference in angles
+            calibratedGyroScaleFactors[axis] = 1f / ((finalAlongOneAxis)/ (rotationAmount * calibratedGyroScaleFactors[axis]));
         }
 
         // Calibration complete
-        currentAxis = -1;
-        currentOffset = 0f;
-        calibrationText.text = "Calibration complete";
-        isCalibrating = false;
+        currentGyroAxis = -1;
+        gyroCalibrationText.text = "Calibration complete";
+        isCalibratingGyro = false;
     }
 
-    private void Calibrate()
+    private void CalibrateGyro()
     {
-        if (!isCalibrating)
+        if (!isCalibratingGyro)
         {
-            StartCoroutine(CalibrateCoroutine());
+            StartCoroutine(CalibrateGyroCoroutine());
         }
+    }
+
+    public void ResetRotation()
+    {
+        _cube.transform.rotation = Quaternion.identity;
+    }
+
+    public void LockToPhone()
+    {
+        _cube.transform.rotation = new Quaternion(0f, -0.707106829f, 0.707106829f, 0f);
     }
 
 }
