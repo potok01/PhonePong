@@ -1,3 +1,4 @@
+using AHRS;
 using System;
 using System.Collections;
 using System.Diagnostics;
@@ -57,9 +58,13 @@ public class SensorServer : MonoBehaviour
     private int currentAccelAxis = 0;
     public float[] calibratedAccelScaleFactors = { 0.1f, 0.1f, 0.1f };
 
+    public MahonyAHRS ahrs;
+    public Quaternion orientation;
 
     private void Start()
     {
+
+        ahrs = new MahonyAHRS(0.005f, 1f, 0.1f);
         startButton.onClick.AddListener(StartServer);
         stopButton.onClick.AddListener(StopServer);
         calibrateButton.onClick.AddListener(CalibrateGyro);
@@ -164,6 +169,8 @@ public class SensorServer : MonoBehaviour
                     gyroData = new Vector3(sensorData[3], sensorData[4], sensorData[5]);
                     magData = new Vector3(sensorData[6], sensorData[7], sensorData[8]);
 
+                    orientation = ahrs.GetOrientationAGM(sensorData);
+
                     // Show sensor readings
                     sensorReadings.text = sensorText;
 
@@ -214,10 +221,8 @@ public class SensorServer : MonoBehaviour
 
     private void Update()
     {
-        /*
-        Quaternion gyroRotation = Quaternion.Euler(gyroData.x * calibratedGyroScaleFactors[0], gyroData.y * calibratedGyroScaleFactors[1], gyroData.z * calibratedGyroScaleFactors[2]);
-        _cube.transform.rotation *= gyroRotation;
-        */
+        _cube.transform.rotation = orientation;
+        
     }
 
     // Define filter variables
