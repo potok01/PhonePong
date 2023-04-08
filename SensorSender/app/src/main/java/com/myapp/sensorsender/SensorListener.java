@@ -36,21 +36,16 @@ public class SensorListener implements SensorEventListener {
     private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
     private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
     private static final int SENSOR_TYPE_MAGNETOMETER = Sensor.TYPE_MAGNETIC_FIELD;
+    private static final int SENSOR_TYPE_GAME_ROTATION_VECTOR = Sensor.TYPE_GAME_ROTATION_VECTOR;
 
-    byte[] accelDataBytes = new byte[3 * 4];
-    ByteBuffer accelBuffer = ByteBuffer.wrap(accelDataBytes).order(ByteOrder.LITTLE_ENDIAN);
-    byte[] gyroDataBytes = new byte[3 * 4];
-    ByteBuffer gyroBuffer = ByteBuffer.wrap(gyroDataBytes).order(ByteOrder.LITTLE_ENDIAN);
-    byte[] magnetDataBytes = new byte[3 * 4];
-    ByteBuffer magnetBuffer = ByteBuffer.wrap(magnetDataBytes).order(ByteOrder.LITTLE_ENDIAN);
-
-    byte[] allDataBytes = new byte[accelDataBytes.length + gyroDataBytes.length + magnetDataBytes.length];
+    byte[] rotationQuaternionBytes = new byte[4 * 4];
+    ByteBuffer rotationQuaternionBytesBuffer = ByteBuffer.wrap(rotationQuaternionBytes).order(ByteOrder.LITTLE_ENDIAN);
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        Sensor magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         // Send the sensor data to the server
         try {
+            /*
             // Convert the sensor data to byte arrays
             for (int i = 0; i < event.values.length; i++) {
                 if (!isAccelerometerDataAvailable && event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
@@ -71,48 +66,42 @@ public class SensorListener implements SensorEventListener {
                     }
                 }
             }
-            if (isAccelerometerDataAvailable && isGyroscopeDataAvailable && isMagnetometerDataAvailable) {
-                // Combine the byte arrays for accelerometer and gyroscope data
-                System.arraycopy(accelDataBytes, 0, allDataBytes, 0, accelDataBytes.length);
-                System.arraycopy(gyroDataBytes, 0, allDataBytes, accelDataBytes.length, gyroDataBytes.length);
-                System.arraycopy(magnetDataBytes, 0, allDataBytes, accelDataBytes.length + gyroDataBytes.length, magnetDataBytes.length);
+            */
 
-                // Reset data ready flags
-                isAccelerometerDataAvailable = false;
-                isGyroscopeDataAvailable = false;
-                isMagnetometerDataAvailable = false;
-
-                // Use the same ByteBuffer objects to read the float values
-                ByteBuffer buffer = ByteBuffer.wrap(allDataBytes).order(ByteOrder.LITTLE_ENDIAN);
-
-                for (int i = 0; i < 9; i++) {
-                    Log.d("Float", String.valueOf(buffer.getFloat()));
+            for (int i = 0; i < event.values.length; i++) {
+                if(event.sensor.getType() == SENSOR_TYPE_GAME_ROTATION_VECTOR){
+                    rotationQuaternionBytesBuffer.putFloat(i * 4, event.values[i]);
                 }
-
-                // Send the data to the server on a separate thread
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            // Check if the socket is still connected
-                            if (!socket.isConnected()) {
-                                Log.e("Socket", "Connection closed");
-                                return;
-                            }
-                            // Write the data to the output stream
-                            DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
-                            dataOutputStream.write(allDataBytes);
-                            dataOutputStream.flush();
-                        } catch (SocketException e) {
-                            // Handle the broken pipe error
-                            Log.e("Socket", "Remote server closed");
-                            disconnectFromServer();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }).start();
             }
+
+
+            for (int i = 0; i < 4; i++) {
+                Log.d("Float", String.valueOf(rotationQuaternionBytesBuffer.getFloat()));
+            }
+
+            // Send the data to the server on a separate thread
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        // Check if the socket is still connected
+                        if (!socket.isConnected()) {
+                            Log.e("Socket", "Connection closed");
+                            return;
+                        }
+                        // Write the data to the output stream
+                        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+                        dataOutputStream.write(rotationQuaternionBytes);
+                        dataOutputStream.flush();
+                    } catch (SocketException e) {
+                        // Handle the broken pipe error
+                        Log.e("Socket", "Remote server closed");
+                        disconnectFromServer();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }).start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -200,6 +189,9 @@ public class SensorListener implements SensorEventListener {
 
                 Sensor magnetometerSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_MAGNETOMETER);
                 sensorManager.registerListener(sensorListener, magnetometerSensor, SENSOR_DELAY);
+
+                Sensor gameRotationVectorSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_GAME_ROTATION_VECTOR);
+                sensorManager.registerListener(sensorListener, gameRotationVectorSensor, SENSOR_DELAY);
 
                 // Set the isSendingData flag to true
                 isSendingData = true;
