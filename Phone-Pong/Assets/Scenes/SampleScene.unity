@@ -1748,7 +1748,7 @@ MonoBehaviour:
   calibrateButton: {fileID: 782720966}
   resetRotationButton: {fileID: 1624147238}
   lockToPhoneButton: {fileID: 1426609989}
-  sensorReadings: {fileID: 0}
+  sensorReadings: {fileID: 2092567157}
   linearAccelData: {x: 0, y: 0, z: 0}
   gyroData: {x: 0, y: 0, z: 0}
   magData: {x: 0, y: 0, z: 0}

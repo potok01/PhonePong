@@ -214,45 +214,15 @@ public class SensorServer : MonoBehaviour
 
     private void Update()
     {
-        /*
+        
         Quaternion gyroRotation = Quaternion.Euler(gyroData.x * calibratedGyroScaleFactors[0], gyroData.y * calibratedGyroScaleFactors[1], gyroData.z * calibratedGyroScaleFactors[2]);
         _cube.transform.rotation *= gyroRotation;
-        */
+        
     }
-
-    // Define filter variables
-    float linearAccelAlpha = 0.5f; // filter coefficient
-    Vector3 prevLinearAccelData = Vector3.zero; // previous filtered output
-    Vector3 filteredLinearAccelData = Vector3.zero; // current filtered output
-
-    float gyroAlpha = 0.5f; // filter coefficient
-    Vector3 prevGyroData = Vector3.zero; // previous filtered output
-    Vector3 filteredGyroData = Vector3.zero; // current filtered output
 
     private void HandleSensorData(float[] sensorData)
     {
-        /*
-        // Apply the filter to the linear acceleration data
-        Vector3 linearAccelInput = new Vector3(sensorData[0], sensorData[1], sensorData[2]);
-        filteredLinearAccelData = Vector3.Lerp(prevLinearAccelData, linearAccelInput, linearAccelAlpha);
-        prevLinearAccelData = filteredLinearAccelData;
 
-        // Update the TextMeshPro objects with the filtered linear acceleration data
-        linearAccelX.text = string.Format("{0:F2}", filteredLinearAccelData.x);
-        linearAccelY.text = string.Format("{0:F2}", filteredLinearAccelData.y);
-        linearAccelZ.text = string.Format("{0:F2}", filteredLinearAccelData.z);
-
-        // Apply the filter to the gyroscope data
-        Vector3 gyroInput = new Vector3(sensorData[3], sensorData[4], sensorData[5]);
-        filteredGyroData = Vector3.Lerp(prevGyroData, gyroInput, gyroAlpha);
-        prevGyroData = filteredGyroData;
-
-        // Update the TextMeshPro objects with the filtered gyroscope data
-        gyroX.text = string.Format("{0:F2}", filteredGyroData.x);
-        gyroY.text = string.Format("{0:F2}", filteredGyroData.y);
-        gyroZ.text = string.Format("{0:F2}", filteredGyroData.z);
-
-        */
     }
     private IEnumerator CalibrateGyroCoroutine()
     {
