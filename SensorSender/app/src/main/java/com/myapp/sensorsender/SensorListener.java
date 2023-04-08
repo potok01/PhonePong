@@ -31,17 +31,24 @@ public class SensorListener implements SensorEventListener {
     private SensorEventListener sensorListener = this;
     private boolean isAccelerometerDataAvailable = false;
     private boolean isGyroscopeDataAvailable = false;
+    private boolean isMagnetometerDataAvailable = false;
     private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_GAME;
     private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
     private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
+    private static final int SENSOR_TYPE_MAGNETOMETER = Sensor.TYPE_MAGNETIC_FIELD;
+
     byte[] accelDataBytes = new byte[3 * 4];
     ByteBuffer accelBuffer = ByteBuffer.wrap(accelDataBytes).order(ByteOrder.LITTLE_ENDIAN);
     byte[] gyroDataBytes = new byte[3 * 4];
-    byte[] allDataBytes = new byte[accelDataBytes.length + gyroDataBytes.length];
     ByteBuffer gyroBuffer = ByteBuffer.wrap(gyroDataBytes).order(ByteOrder.LITTLE_ENDIAN);
+    byte[] magnetDataBytes = new byte[3 * 4];
+    ByteBuffer magnetBuffer = ByteBuffer.wrap(magnetDataBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+    byte[] allDataBytes = new byte[accelDataBytes.length + gyroDataBytes.length + magnetDataBytes.length];
 
     @Override
     public void onSensorChanged(SensorEvent event) {
+        Sensor magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         // Send the sensor data to the server
         try {
             // Convert the sensor data to byte arrays
@@ -57,19 +64,28 @@ public class SensorListener implements SensorEventListener {
                         isGyroscopeDataAvailable = true;
                     }
                 }
+                else if (!isMagnetometerDataAvailable && event.sensor.getType() == SENSOR_TYPE_MAGNETOMETER) {
+                    magnetBuffer.putFloat(i * 4, event.values[i]);
+                    if (i == event.values.length - 1) {
+                        isMagnetometerDataAvailable = true;
+                    }
+                }
             }
-            if (isAccelerometerDataAvailable && isGyroscopeDataAvailable) {
+            if (isAccelerometerDataAvailable && isGyroscopeDataAvailable && isMagnetometerDataAvailable) {
                 // Combine the byte arrays for accelerometer and gyroscope data
                 System.arraycopy(accelDataBytes, 0, allDataBytes, 0, accelDataBytes.length);
                 System.arraycopy(gyroDataBytes, 0, allDataBytes, accelDataBytes.length, gyroDataBytes.length);
+                System.arraycopy(magnetDataBytes, 0, allDataBytes, accelDataBytes.length + gyroDataBytes.length, magnetDataBytes.length);
 
+                // Reset data ready flags
                 isAccelerometerDataAvailable = false;
                 isGyroscopeDataAvailable = false;
+                isMagnetometerDataAvailable = false;
 
                 // Use the same ByteBuffer objects to read the float values
                 ByteBuffer buffer = ByteBuffer.wrap(allDataBytes).order(ByteOrder.LITTLE_ENDIAN);
 
-                for (int i = 0; i < 6; i++) {
+                for (int i = 0; i < 9; i++) {
                     Log.d("Float", String.valueOf(buffer.getFloat()));
                 }
 
@@ -181,6 +197,9 @@ public class SensorListener implements SensorEventListener {
 
                 Sensor gyroscopeSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_GYROSCOPE);
                 sensorManager.registerListener(sensorListener, gyroscopeSensor, SENSOR_DELAY);
+
+                Sensor magnetometerSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_MAGNETOMETER);
+                sensorManager.registerListener(sensorListener, magnetometerSensor, SENSOR_DELAY);
 
                 // Set the isSendingData flag to true
                 isSendingData = true;

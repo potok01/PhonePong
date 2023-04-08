@@ -5,8 +5,6 @@ using System.Net;
 using System.Net.Sockets;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.UIElements;
 using Button = UnityEngine.UI.Button;
 using Debug = UnityEngine.Debug;
 
@@ -26,16 +24,11 @@ public class SensorServer : MonoBehaviour
     public Button resetRotationButton;
     public Button lockToPhoneButton;
 
-    public TextMeshProUGUI linearAccelX;
-    public TextMeshProUGUI linearAccelY;
-    public TextMeshProUGUI linearAccelZ;
-
-    public TextMeshProUGUI gyroX;
-    public TextMeshProUGUI gyroY;
-    public TextMeshProUGUI gyroZ;
+    public TextMeshProUGUI sensorReadings;
 
     public Vector3 linearAccelData;
     public Vector3 gyroData;
+    public Vector3 magData;
 
     public GameObject _cube;
 
@@ -131,7 +124,7 @@ public class SensorServer : MonoBehaviour
     {
         Debug.Log("This has been started");
         NetworkStream stream = client.GetStream();
-        byte[] buffer = new byte[24];
+        byte[] buffer = new byte[36];
         int bytesRead = 0;
 
         while (isRunning && client.Connected)
@@ -150,26 +143,29 @@ public class SensorServer : MonoBehaviour
                     bytesRead = stream.Read(buffer, 0, buffer.Length);
 
                     // Convert the byte array to float values
-                    float[] sensorData = new float[6];
+                    float[] sensorData = new float[9];
                     for (int i = 0; i < sensorData.Length; i++)
                     {
                         sensorData[i] = BitConverter.ToSingle(buffer, i * sizeof(float));
                     }
 
                     HandleSensorData(sensorData);
-                    
+
+                    string sensorText = "";
+
                     // Update the TextMeshPro objects with the received data
-                    linearAccelX.text = string.Format("{0:F2}", sensorData[0]);
-                    linearAccelY.text = string.Format("{0:F2}", sensorData[1]);
-                    linearAccelZ.text = string.Format("{0:F2}", sensorData[2]);
-
+                    for (int i = 0; i < sensorData.Length; i++)
+                    {
+                        sensorText += string.Format("{0:F2}", sensorData[i]);
+                        sensorText += " ";
+                    }
+                    
                     linearAccelData = new Vector3(sensorData[0], sensorData[1], sensorData[2]);
-
-                    gyroX.text = string.Format("{0:F2}", sensorData[3]);
-                    gyroY.text = string.Format("{0:F2}", sensorData[4]);
-                    gyroZ.text = string.Format("{0:F2}", sensorData[5]);
-
                     gyroData = new Vector3(sensorData[3], sensorData[4], sensorData[5]);
+                    magData = new Vector3(sensorData[6], sensorData[7], sensorData[8]);
+
+                    // Show sensor readings
+                    sensorReadings.text = sensorText;
 
                     // If you want to measure the frequency of data received, you can update a counter
                     // and calculate the frequency at regular intervals (e.g. every 1 second)
@@ -216,10 +212,12 @@ public class SensorServer : MonoBehaviour
 
 
 
-        private void Update()
+    private void Update()
     {
+        /*
         Quaternion gyroRotation = Quaternion.Euler(gyroData.x * calibratedGyroScaleFactors[0], gyroData.y * calibratedGyroScaleFactors[1], gyroData.z * calibratedGyroScaleFactors[2]);
         _cube.transform.rotation *= gyroRotation;
+        */
     }
 
     // Define filter variables
