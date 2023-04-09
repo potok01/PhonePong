@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using TMPro;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using Button = UnityEngine.UI.Button;
 using Debug = UnityEngine.Debug;
@@ -57,7 +58,7 @@ public class SensorServer : MonoBehaviour
     private int currentAccelAxis = 0;
     public float[] calibratedAccelScaleFactors = { 0.1f, 0.1f, 0.1f };
 
-
+    public Quaternion orientation;
     private void Start()
     {
         startButton.onClick.AddListener(StartServer);
@@ -124,7 +125,7 @@ public class SensorServer : MonoBehaviour
     {
         Debug.Log("This has been started");
         NetworkStream stream = client.GetStream();
-        byte[] buffer = new byte[36];
+        byte[] buffer = new byte[16];
         int bytesRead = 0;
 
         while (isRunning && client.Connected)
@@ -143,7 +144,7 @@ public class SensorServer : MonoBehaviour
                     bytesRead = stream.Read(buffer, 0, buffer.Length);
 
                     // Convert the byte array to float values
-                    float[] sensorData = new float[9];
+                    float[] sensorData = new float[4];
                     for (int i = 0; i < sensorData.Length; i++)
                     {
                         sensorData[i] = BitConverter.ToSingle(buffer, i * sizeof(float));
@@ -159,10 +160,8 @@ public class SensorServer : MonoBehaviour
                         sensorText += string.Format("{0:F2}", sensorData[i]);
                         sensorText += " ";
                     }
-                    
-                    linearAccelData = new Vector3(sensorData[0], sensorData[1], sensorData[2]);
-                    gyroData = new Vector3(sensorData[3], sensorData[4], sensorData[5]);
-                    magData = new Vector3(sensorData[6], sensorData[7], sensorData[8]);
+                   
+                    orientation = new Quaternion(sensorData[0], sensorData[1], sensorData[2], sensorData[3]);
 
                     // Show sensor readings
                     sensorReadings.text = sensorText;
@@ -214,9 +213,7 @@ public class SensorServer : MonoBehaviour
 
     private void Update()
     {
-        
-        Quaternion gyroRotation = Quaternion.Euler(gyroData.x * calibratedGyroScaleFactors[0], gyroData.y * calibratedGyroScaleFactors[1], gyroData.z * calibratedGyroScaleFactors[2]);
-        _cube.transform.rotation *= gyroRotation;
+        _cube.transform.localRotation = orientation;
         
     }
 
@@ -286,6 +283,7 @@ public class SensorServer : MonoBehaviour
     public void LockToPhone()
     {
         _cube.transform.rotation = new Quaternion(0f, -0.707106829f, 0.707106829f, 0f);
+        Debug.Log("Hi");
     }
 
 }

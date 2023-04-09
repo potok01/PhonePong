@@ -29,18 +29,17 @@ public class SensorListener implements SensorEventListener {
     private boolean isSendingData = false;
     private SensorManager sensorManager;
     private SensorEventListener sensorListener = this;
-    private boolean isAccelerometerDataAvailable = false;
-    private boolean isGyroscopeDataAvailable = false;
-    private boolean isMagnetometerDataAvailable = false;
-    private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_GAME;
+    private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_NORMAL;
     private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
     private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
     private static final int SENSOR_TYPE_MAGNETOMETER = Sensor.TYPE_MAGNETIC_FIELD;
     private static final int SENSOR_TYPE_GAME_ROTATION_VECTOR = Sensor.TYPE_GAME_ROTATION_VECTOR;
 
-    byte[] rotationQuaternionBytes = new byte[4 * 4];
-    ByteBuffer rotationQuaternionBytesBuffer = ByteBuffer.wrap(rotationQuaternionBytes).order(ByteOrder.LITTLE_ENDIAN);
 
+
+
+    private long lastPacketTime = 0;
+    private final long delayTime = 100; // in milliseconds
     @Override
     public void onSensorChanged(SensorEvent event) {
         // Send the sensor data to the server
@@ -68,12 +67,31 @@ public class SensorListener implements SensorEventListener {
             }
             */
 
+            long currentTime = System.currentTimeMillis();
+
+            /*
+            // Add a delay if the time difference between the current time and the last packet time is less than the desired delay time
+            if (currentTime - lastPacketTime < delayTime) {
+                try {
+                    Thread.sleep(delayTime - (currentTime - lastPacketTime));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            */
+            
+            byte[] rotationQuaternionBytes = new byte[4 * 4];
+            ByteBuffer rotationQuaternionBytesBuffer = ByteBuffer.wrap(rotationQuaternionBytes).order(ByteOrder.LITTLE_ENDIAN);
+
             for (int i = 0; i < event.values.length; i++) {
                 if(event.sensor.getType() == SENSOR_TYPE_GAME_ROTATION_VECTOR){
                     rotationQuaternionBytesBuffer.putFloat(i * 4, event.values[i]);
                 }
             }
 
+            if(event.values.length == 3){
+                rotationQuaternionBytesBuffer.putFloat(12, 0);
+            }
 
             for (int i = 0; i < 4; i++) {
                 Log.d("Float", String.valueOf(rotationQuaternionBytesBuffer.getFloat()));
@@ -91,6 +109,8 @@ public class SensorListener implements SensorEventListener {
                         }
                         // Write the data to the output stream
                         DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+                        rotationQuaternionBytesBuffer.rewind();
+                        rotationQuaternionBytesBuffer.get(rotationQuaternionBytes);
                         dataOutputStream.write(rotationQuaternionBytes);
                         dataOutputStream.flush();
                     } catch (SocketException e) {
@@ -100,11 +120,14 @@ public class SensorListener implements SensorEventListener {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+
                 }
-            }).start();
+            }
+            ).start();
         } catch (Exception e) {
             e.printStackTrace();
         }
+        lastPacketTime = System.currentTimeMillis();
     }
 
     public void connectToServer() {
@@ -181,15 +204,6 @@ public class SensorListener implements SensorEventListener {
                 sensorManager = (SensorManager) mainActivity.getSystemService(Context.SENSOR_SERVICE);
 
                 // Register the sensor listener for accelerometer and gyroscope sensors
-                Sensor accelerometerSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_ACCELEROMETER);
-                sensorManager.registerListener(sensorListener, accelerometerSensor, SENSOR_DELAY);
-
-                Sensor gyroscopeSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_GYROSCOPE);
-                sensorManager.registerListener(sensorListener, gyroscopeSensor, SENSOR_DELAY);
-
-                Sensor magnetometerSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_MAGNETOMETER);
-                sensorManager.registerListener(sensorListener, magnetometerSensor, SENSOR_DELAY);
-
                 Sensor gameRotationVectorSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_GAME_ROTATION_VECTOR);
                 sensorManager.registerListener(sensorListener, gameRotationVectorSensor, SENSOR_DELAY);
 
