@@ -34,52 +34,12 @@ public class SensorListener implements SensorEventListener {
     private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
     private static final int SENSOR_TYPE_MAGNETOMETER = Sensor.TYPE_MAGNETIC_FIELD;
     private static final int SENSOR_TYPE_GAME_ROTATION_VECTOR = Sensor.TYPE_GAME_ROTATION_VECTOR;
-
-
-
-
-    private long lastPacketTime = 0;
-    private final long delayTime = 100; // in milliseconds
     @Override
     public void onSensorChanged(SensorEvent event) {
         // Send the sensor data to the server
         try {
-            /*
-            // Convert the sensor data to byte arrays
-            for (int i = 0; i < event.values.length; i++) {
-                if (!isAccelerometerDataAvailable && event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                    accelBuffer.putFloat(i * 4, event.values[i]);
-                    if (i == event.values.length - 1) {
-                        isAccelerometerDataAvailable = true;
-                    }
-                } else if (!isGyroscopeDataAvailable && event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-                    gyroBuffer.putFloat(i * 4, event.values[i]);
-                    if (i == event.values.length - 1) {
-                        isGyroscopeDataAvailable = true;
-                    }
-                }
-                else if (!isMagnetometerDataAvailable && event.sensor.getType() == SENSOR_TYPE_MAGNETOMETER) {
-                    magnetBuffer.putFloat(i * 4, event.values[i]);
-                    if (i == event.values.length - 1) {
-                        isMagnetometerDataAvailable = true;
-                    }
-                }
-            }
-            */
 
-            long currentTime = System.currentTimeMillis();
 
-            /*
-            // Add a delay if the time difference between the current time and the last packet time is less than the desired delay time
-            if (currentTime - lastPacketTime < delayTime) {
-                try {
-                    Thread.sleep(delayTime - (currentTime - lastPacketTime));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            */
-            
             byte[] rotationQuaternionBytes = new byte[4 * 4];
             ByteBuffer rotationQuaternionBytesBuffer = ByteBuffer.wrap(rotationQuaternionBytes).order(ByteOrder.LITTLE_ENDIAN);
 
@@ -127,7 +87,6 @@ public class SensorListener implements SensorEventListener {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        lastPacketTime = System.currentTimeMillis();
     }
 
     public void connectToServer() {
