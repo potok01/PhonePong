@@ -46,7 +46,7 @@ public class KalmanLinearAccelerationSensor implements FSensor {
     private LinearAcceleration linearAccelerationFilterKalman;
     private OrientationFusedKalman orientationFusionKalman;
 
-    private int sensorDelay = SensorManager.SENSOR_DELAY_FASTEST;
+    private int sensorDelay = SensorManager.SENSOR_DELAY_GAME;
     private int sensorType = Sensor.TYPE_GYROSCOPE;
 
     private final SensorSubject sensorSubject;

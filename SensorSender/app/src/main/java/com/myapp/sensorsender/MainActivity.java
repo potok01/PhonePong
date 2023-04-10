@@ -41,18 +41,18 @@ public class MainActivity extends AppCompatActivity {
     float azimuth;
     float pitch;
     float roll;
-    double[] q_azimuth;
-    double[] q_pitch;
-    double[] q_roll;
-    double[] q;
+    float[] q_azimuth;
+    float[] q_pitch;
+    float[] q_roll;
+    float[] q;
     boolean isLinearAccelerationDataReady;
     boolean isGyroDataReady;
 
-    byte[] allDataBytes = new byte[7 * 4];
+    byte[] allDataBytes = new byte[9 * 4];
     ByteBuffer allDataBytesBuffer = ByteBuffer.wrap(allDataBytes).order(ByteOrder.LITTLE_ENDIAN);
-    byte[] linearAccelerationDataBytes = new byte[3 * 4];
+    byte[] linearAccelerationDataBytes = new byte[4 * 4];
     ByteBuffer linearAccelerationDataBytesBuffer = ByteBuffer.wrap(linearAccelerationDataBytes).order(ByteOrder.LITTLE_ENDIAN);
-    byte[] gyroDataBytes = new byte[4 * 4];
+    byte[] gyroDataBytes = new byte[5 * 4];
     ByteBuffer gyroDataBytesBuffer = ByteBuffer.wrap(gyroDataBytes).order(ByteOrder.LITTLE_ENDIAN);
 
 
@@ -101,14 +101,15 @@ public class MainActivity extends AppCompatActivity {
             if(isLinearAccelerationDataReady)
                 return;
 
-            for (int i = 0; i < values.length - 1; i++) {
+            for (int i = 0; i < values.length; i++) {
                 linearAccelerationDataBytesBuffer.putFloat(i * 4, values[i]);
             }
 
             String linearAccelerationString = "Linear Acceleration: " +
                     String.format(Locale.US, "%.2f", values[0]) + ", " +
                     String.format(Locale.US, "%.2f", values[1]) + ", " +
-                    String.format(Locale.US, "%.2f", values[2]);
+                    String.format(Locale.US, "%.2f", values[2]) + ", " +
+                    String.format(Locale.US, "%.2f", values[3]);
 
             Log.d("Accelerometer", linearAccelerationString);
 
@@ -129,25 +130,28 @@ public class MainActivity extends AppCompatActivity {
             pitch = values[1];
             roll = values[2];
 
-            q_azimuth = new double[]{Math.cos(azimuth/2), 0, 0, Math.sin(azimuth/2)};
-            q_pitch = new double[]{Math.cos(pitch/2), 0, Math.sin(pitch/2), 0};
-            q_roll = new double[]{Math.cos(roll/2), Math.sin(roll/2), 0, 0};
+            q_azimuth = new float[]{(float)Math.cos(azimuth/2f), 0f, 0f, (float)Math.sin(azimuth/2f)};
+            q_pitch = new float[]{(float)Math.cos(pitch/2f), 0f, (float)Math.sin(pitch/2f), 0f};
+            q_roll = new float[]{(float)Math.cos(roll/2f), (float)Math.sin(roll/2f), 0f, 0f};
 
-            q = new double[4];
+
+            q = new float[5];
             q[0] = q_azimuth[0] * q_pitch[0] * q_roll[0] - q_azimuth[1] * q_pitch[1] * q_roll[0] - q_azimuth[2] * q_pitch[0] * q_roll[1] - q_azimuth[3] * q_pitch[1] * q_roll[1];
             q[1] = q_azimuth[0] * q_pitch[1] * q_roll[0] + q_azimuth[1] * q_pitch[0] * q_roll[0] + q_azimuth[2] * q_pitch[1] * q_roll[1] - q_azimuth[3] * q_pitch[0] * q_roll[1];
             q[2] = q_azimuth[0] * q_pitch[0] * q_roll[1] + q_azimuth[1] * q_pitch[1] * q_roll[1] + q_azimuth[2] * q_pitch[0] * q_roll[0] - q_azimuth[3] * q_pitch[1] * q_roll[0];
             q[3] = q_azimuth[0] * q_pitch[1] * q_roll[1] - q_azimuth[1] * q_pitch[0] * q_roll[1] + q_azimuth[2] * q_pitch[1] * q_roll[0] + q_azimuth[3] * q_pitch[0] * q_roll[0];
+            q[4] = values[3];
 
-            for (int i = 0; i < values.length - 1; i++) {
-                gyroDataBytesBuffer.putFloat(i * 4, values[i]);
+            for (int i = 0; i < q.length; i++) {
+                gyroDataBytesBuffer.putFloat(i * 4, q[i]);
             }
 
             String gyroString = "Gyroscope: " +
                     String.format(Locale.US, "%.2f", q[0]) + ", " +
                     String.format(Locale.US, "%.2f", q[1]) + ", " +
                     String.format(Locale.US, "%.2f", q[2]) + ", " +
-                    String.format(Locale.US, "%.2f", q[3]);
+                    String.format(Locale.US, "%.2f", q[3]) + ", " +
+                    String.format(Locale.US, "%.2f", q[4]);
 
             Log.d("Gyro", gyroString);
 

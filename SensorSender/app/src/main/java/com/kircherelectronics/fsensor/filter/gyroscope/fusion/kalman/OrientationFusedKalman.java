@@ -100,7 +100,9 @@ public class OrientationFusedKalman extends OrientationFused {
                         }
                     }
 
+
                     Thread.currentThread().interrupt();
+
                 }
             });
 
