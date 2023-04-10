@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private Socket socket;
     private OutputStream outputStream;
     private boolean isSendingData = false;
+    private boolean shouldStateChangeSensors = false;
     float azimuth;
     float pitch;
     float roll;
@@ -54,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
     byte[] gyroDataBytes = new byte[4 * 4];
     ByteBuffer gyroDataBytesBuffer = ByteBuffer.wrap(gyroDataBytes).order(ByteOrder.LITTLE_ENDIAN);
 
-    boolean registered = false;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,10 +98,10 @@ public class MainActivity extends AppCompatActivity {
     private final SensorSubject.SensorObserver accelerometerObserver = new SensorSubject.SensorObserver() {
         @Override
         public void onSensorChanged(float[] values) {
-            if(!isLinearAccelerationDataReady)
+            if(isLinearAccelerationDataReady)
                 return;
 
-            for (int i = 0; i < values.length; i++) {
+            for (int i = 0; i < values.length - 1; i++) {
                 linearAccelerationDataBytesBuffer.putFloat(i * 4, values[i]);
             }
 
@@ -121,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
     private final SensorSubject.SensorObserver gyroObserver = new SensorSubject.SensorObserver() {
         @Override
         public void onSensorChanged(float[] values) {
-            if(!isGyroDataReady)
+            if(isGyroDataReady)
                 return;
 
             azimuth = values[0];
@@ -138,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
             q[2] = q_azimuth[0] * q_pitch[0] * q_roll[1] + q_azimuth[1] * q_pitch[1] * q_roll[1] + q_azimuth[2] * q_pitch[0] * q_roll[0] - q_azimuth[3] * q_pitch[1] * q_roll[0];
             q[3] = q_azimuth[0] * q_pitch[1] * q_roll[1] - q_azimuth[1] * q_pitch[0] * q_roll[1] + q_azimuth[2] * q_pitch[1] * q_roll[0] + q_azimuth[3] * q_pitch[0] * q_roll[0];
 
-            for (int i = 0; i < values.length; i++) {
+            for (int i = 0; i < values.length - 1; i++) {
                 gyroDataBytesBuffer.putFloat(i * 4, values[i]);
             }
 
@@ -158,12 +159,7 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        if(registered)
-            return;
-
+    public void startSensors(){
         accelerometerSensor = new KalmanLinearAccelerationSensor(this);
         accelerometerSensor.register(accelerometerObserver);
         accelerometerSensor.start();
@@ -171,22 +167,26 @@ public class MainActivity extends AppCompatActivity {
         gyroSensor = new KalmanGyroscopeSensor(this);
         gyroSensor.register(gyroObserver);
         gyroSensor.start();
-
-        registered = true;
     }
 
-    @Override
-    public void onPause() {
-        if(!registered)
-            return;
-
+    public void stopSensors(){
         accelerometerSensor.unregister(accelerometerObserver);
         accelerometerSensor.stop();
 
         gyroSensor.unregister(gyroObserver);
         gyroSensor.stop();
+    }
+    @Override
+    public void onResume() {
+        super.onResume();
+        if(shouldStateChangeSensors)
+            startSensors();
+    }
 
-        registered = false;
+    @Override
+    public void onPause() {
+        if(shouldStateChangeSensors)
+            stopSensors();
 
         super.onPause();
     }
@@ -258,13 +258,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         isSendingData = true;
-        accelerometerSensor = new KalmanLinearAccelerationSensor(this);
-        accelerometerSensor.register(accelerometerObserver);
-        accelerometerSensor.start();
+        startSensors();
 
-        gyroSensor = new KalmanGyroscopeSensor(this);
-        gyroSensor.register(gyroObserver);
-        gyroSensor.start();
+        shouldStateChangeSensors = true;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -285,12 +281,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        isSendingData = false;
-        accelerometerSensor.unregister(accelerometerObserver);
-        accelerometerSensor.stop();
-
-        gyroSensor.unregister(gyroObserver);
-        gyroSensor.stop();
+        stopSensors();
+        shouldStateChangeSensors = false;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
