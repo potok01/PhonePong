@@ -27,107 +27,77 @@ public class SensorListener implements SensorEventListener {
     private Socket socket;
     private OutputStream outputStream;
     private boolean isSendingData = false;
+    private boolean isGameRotationVectorDataAvailable = false;
+    private boolean isLinearAccelerationDataAvailable = false;
     private SensorManager sensorManager;
     private SensorEventListener sensorListener = this;
     private static final int SENSOR_DELAY = SensorManager.SENSOR_DELAY_NORMAL;
-    private static final int SENSOR_TYPE_ACCELEROMETER = Sensor.TYPE_ACCELEROMETER;
-    private static final int SENSOR_TYPE_GYROSCOPE = Sensor.TYPE_GYROSCOPE;
-    private static final int SENSOR_TYPE_MAGNETOMETER = Sensor.TYPE_MAGNETIC_FIELD;
+    private static final int SENSOR_TYPE_LINEAR_ACCELERATION = Sensor.TYPE_LINEAR_ACCELERATION;
     private static final int SENSOR_TYPE_GAME_ROTATION_VECTOR = Sensor.TYPE_GAME_ROTATION_VECTOR;
-
-
-
-
-    private long lastPacketTime = 0;
-    private final long delayTime = 100; // in milliseconds
+    byte[] allDataBytes = new byte[7 * 4];
+    ByteBuffer allDataBytesBuffer = ByteBuffer.wrap(allDataBytes).order(ByteOrder.LITTLE_ENDIAN);
     @Override
     public void onSensorChanged(SensorEvent event) {
         // Send the sensor data to the server
         try {
-            /*
-            // Convert the sensor data to byte arrays
-            for (int i = 0; i < event.values.length; i++) {
-                if (!isAccelerometerDataAvailable && event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                    accelBuffer.putFloat(i * 4, event.values[i]);
-                    if (i == event.values.length - 1) {
-                        isAccelerometerDataAvailable = true;
-                    }
-                } else if (!isGyroscopeDataAvailable && event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-                    gyroBuffer.putFloat(i * 4, event.values[i]);
-                    if (i == event.values.length - 1) {
-                        isGyroscopeDataAvailable = true;
-                    }
+            if(event.sensor.getType() == SENSOR_TYPE_GAME_ROTATION_VECTOR && !isGameRotationVectorDataAvailable) {
+                for (int i = 0; i < event.values.length; i++) {
+                    allDataBytesBuffer.putFloat((i * 4) + 12, event.values[i]);
                 }
-                else if (!isMagnetometerDataAvailable && event.sensor.getType() == SENSOR_TYPE_MAGNETOMETER) {
-                    magnetBuffer.putFloat(i * 4, event.values[i]);
-                    if (i == event.values.length - 1) {
-                        isMagnetometerDataAvailable = true;
-                    }
+                if (event.values.length == 3) {
+                    allDataBytesBuffer.putFloat(24, 0);
                 }
-            }
-            */
 
-            long currentTime = System.currentTimeMillis();
-
-            /*
-            // Add a delay if the time difference between the current time and the last packet time is less than the desired delay time
-            if (currentTime - lastPacketTime < delayTime) {
-                try {
-                    Thread.sleep(delayTime - (currentTime - lastPacketTime));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                isGameRotationVectorDataAvailable = true;
+            }else if (event.sensor.getType() == SENSOR_TYPE_LINEAR_ACCELERATION && !isLinearAccelerationDataAvailable) {
+                for (int i = 0; i < event.values.length; i++) {
+                    allDataBytesBuffer.putFloat(i * 4, event.values[i]);
                 }
-            }
-            */
-            
-            byte[] rotationQuaternionBytes = new byte[4 * 4];
-            ByteBuffer rotationQuaternionBytesBuffer = ByteBuffer.wrap(rotationQuaternionBytes).order(ByteOrder.LITTLE_ENDIAN);
 
-            for (int i = 0; i < event.values.length; i++) {
-                if(event.sensor.getType() == SENSOR_TYPE_GAME_ROTATION_VECTOR){
-                    rotationQuaternionBytesBuffer.putFloat(i * 4, event.values[i]);
-                }
+                isLinearAccelerationDataAvailable = true;
             }
 
-            if(event.values.length == 3){
-                rotationQuaternionBytesBuffer.putFloat(12, 0);
-            }
 
-            for (int i = 0; i < 4; i++) {
-                Log.d("Float", String.valueOf(rotationQuaternionBytesBuffer.getFloat()));
-            }
+            if(isLinearAccelerationDataAvailable && isGameRotationVectorDataAvailable){
+                isLinearAccelerationDataAvailable = false;
+                isGameRotationVectorDataAvailable = false;
 
-            // Send the data to the server on a separate thread
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        // Check if the socket is still connected
-                        if (!socket.isConnected()) {
-                            Log.e("Socket", "Connection closed");
-                            return;
+                /*
+                allDataBytesBuffer.rewind();
+                for (int i = 0; i < 7; i++) {
+                    Log.d("Float", String.valueOf(allDataBytesBuffer.getFloat()));
+                }*/
+
+                // Send the data to the server on a separate thread
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            // Check if the socket is still connected
+                            if (!socket.isConnected()) {
+                                Log.e("Socket", "Connection closed");
+                                return;
+                            }
+                            // Write the data to the output stream
+                            DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+                            allDataBytesBuffer.rewind();
+                            allDataBytesBuffer.get(allDataBytes);
+                            dataOutputStream.write(allDataBytes);
+                            dataOutputStream.flush();
+                        } catch (SocketException e) {
+                            // Handle the broken pipe error
+                            Log.e("Socket", "Remote server closed");
+                            disconnectFromServer();
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
-                        // Write the data to the output stream
-                        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
-                        rotationQuaternionBytesBuffer.rewind();
-                        rotationQuaternionBytesBuffer.get(rotationQuaternionBytes);
-                        dataOutputStream.write(rotationQuaternionBytes);
-                        dataOutputStream.flush();
-                    } catch (SocketException e) {
-                        // Handle the broken pipe error
-                        Log.e("Socket", "Remote server closed");
-                        disconnectFromServer();
-                    } catch (IOException e) {
-                        e.printStackTrace();
                     }
-
                 }
+                ).start();
             }
-            ).start();
         } catch (Exception e) {
             e.printStackTrace();
         }
-        lastPacketTime = System.currentTimeMillis();
     }
 
     public void connectToServer() {
@@ -206,6 +176,9 @@ public class SensorListener implements SensorEventListener {
                 // Register the sensor listener for accelerometer and gyroscope sensors
                 Sensor gameRotationVectorSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_GAME_ROTATION_VECTOR);
                 sensorManager.registerListener(sensorListener, gameRotationVectorSensor, SENSOR_DELAY);
+
+                Sensor linearAccelerationSensor = sensorManager.getDefaultSensor(SENSOR_TYPE_LINEAR_ACCELERATION);
+                sensorManager.registerListener(sensorListener, linearAccelerationSensor, SENSOR_DELAY);
 
                 // Set the isSendingData flag to true
                 isSendingData = true;

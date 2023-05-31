@@ -58,7 +58,10 @@ public class SensorServer : MonoBehaviour
     private int currentAccelAxis = 0;
     public float[] calibratedAccelScaleFactors = { 0.1f, 0.1f, 0.1f };
 
+    public Vector3 linearAcceleration = new Vector3(0,0,0);
+    public Vector3 linearVelocity = new Vector3(0, 0, 0);
     public Quaternion orientation;
+    public float speedMultiplier = 1.0f;
     private void Start()
     {
         startButton.onClick.AddListener(StartServer);
@@ -125,7 +128,7 @@ public class SensorServer : MonoBehaviour
     {
         Debug.Log("This has been started");
         NetworkStream stream = client.GetStream();
-        byte[] buffer = new byte[16];
+        byte[] buffer = new byte[28];
         int bytesRead = 0;
 
         while (isRunning && client.Connected)
@@ -144,7 +147,7 @@ public class SensorServer : MonoBehaviour
                     bytesRead = stream.Read(buffer, 0, buffer.Length);
 
                     // Convert the byte array to float values
-                    float[] sensorData = new float[4];
+                    float[] sensorData = new float[7];
                     for (int i = 0; i < sensorData.Length; i++)
                     {
                         sensorData[i] = BitConverter.ToSingle(buffer, i * sizeof(float));
@@ -160,8 +163,9 @@ public class SensorServer : MonoBehaviour
                         sensorText += string.Format("{0:F2}", sensorData[i]);
                         sensorText += " ";
                     }
-                   
-                    orientation = new Quaternion(sensorData[0], sensorData[1], sensorData[2], sensorData[3]);
+
+                    linearAcceleration = new Vector3(sensorData[0], sensorData[1], sensorData[2]);
+                    orientation = new Quaternion(sensorData[3], sensorData[4], sensorData[5], sensorData[6]);
 
                     // Show sensor readings
                     sensorReadings.text = sensorText;
@@ -214,7 +218,9 @@ public class SensorServer : MonoBehaviour
     private void Update()
     {
         _cube.transform.localRotation = orientation;
-        
+
+        linearVelocity += linearAcceleration * Time.deltaTime;
+        _cube.transform.position += linearVelocity * speedMultiplier * Time.deltaTime;
     }
 
     private void HandleSensorData(float[] sensorData)
